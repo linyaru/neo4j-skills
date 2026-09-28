@@ -99,6 +99,7 @@ neo4j-admin database backup neo4j --to-path=/backups/$(date +%Y%m%d)
 - `--keep-failed` - Keep failed backup attempts
 - `--verbose` - Print detailed progress
 - `--split-archive-part-size=<size>` - Split the backup artifact into multiple parts of this size [2026.09]; config default `server.split_archive.part_size`
+- `--skip-empty-diffs[=true|false]` - Differential backup with no new transactions produces no artifact [2026.08]; requires `--include-metadata=none`; default `false`
 
 #### restore
 

@@ -214,7 +214,13 @@ Lucene — tokenized, scored, not a filter index. Result nodes must be joined ba
 CREATE FULLTEXT INDEX article_search IF NOT EXISTS
   FOR (n:Article|BlogPost) ON EACH [n.title, n.body]
 
-// Query nodes — returns node + score (descending)
+// Query nodes via SEARCH clause [2026.09, Cypher 25] — preferred
+MATCH (node)
+SEARCH node IN (FULLTEXT INDEX article_search FOR 'graph database' LIMIT 10)
+SCORE AS score
+RETURN node.title, score
+
+// Query nodes via procedure (pre-2026.09) — returns node + score (descending)
 CALL db.index.fulltext.queryNodes('article_search', 'graph database')
 YIELD node, score
 WHERE score > 0.5
@@ -237,7 +243,7 @@ RETURN relationship, score
 //   'team:"Operations"'      field + exact phrase
 ```
 
-Fulltext index does NOT participate in WHERE predicate planning. Use `CALL db.index.fulltext.queryNodes` / `queryRelationships` explicitly.
+Fulltext index does NOT participate in WHERE predicate planning. Query explicitly: `SEARCH ... FULLTEXT INDEX` [2026.09] or `CALL db.index.fulltext.queryNodes` / `queryRelationships`. Full SEARCH syntax → [cypher-syntax.md](cypher-syntax.md).
 
 ---
 
@@ -287,7 +293,7 @@ Rules:
 - Typed hints (`USING RANGE INDEX`, `USING TEXT INDEX`) only valid when the planner can guarantee the type doesn't change results.
 - Hints do NOT guarantee improvement — PROFILE before/after; measure elapsed ms (not db-hits for TEXT).
 - Index **not used** when predicate compares two node properties (`WHERE p.name = p2.name`) — no anchor.
-- FULLTEXT has no `USING INDEX` hint — call `db.index.fulltext.queryNodes` explicitly.
+- FULLTEXT has no `USING INDEX` hint — use `SEARCH ... FULLTEXT INDEX` [2026.09] or `db.index.fulltext.queryNodes` explicitly.
 - Check query stats first (`CALL db.stats.retrieve('GRAPH COUNTS')`) before adding hints.
 
 ---

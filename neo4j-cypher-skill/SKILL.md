@@ -7,7 +7,7 @@ description: Generates, optimizes, and validates Cypher 25 queries for Neo4j 202
   Does NOT handle driver migration or API changes — use neo4j-migration-skill.
   Does NOT cover DB administration or server ops — use neo4j-cli-tools-skill.
 compatibility: Neo4j >= 2025.01 (safe baseline); Cypher 25
-version: 1.0.24
+version: 1.0.25
 ---
 
 ## When to Use
@@ -352,7 +352,8 @@ Default to 2025.01-safe features when version unknown.
 | Match modes (`DIFFERENT RELATIONSHIPS`, `REPEATABLE ELEMENTS`) | 2025.01 | require 2025+ |
 | Dynamic labels `$($expr)`, `coll.sort()` | 2025.01 | APOC or app-side |
 | `CONCURRENT TRANSACTIONS`, `REPORT STATUS` | 2025.01 | drop / omit |
-| `SEARCH` clause (vector/fulltext) | 2026.01 | `CALL db.index.vector.queryNodes(...)` (deprecated 2026.04) |
+| `SEARCH` clause — `VECTOR INDEX` | 2026.01 | `CALL db.index.vector.queryNodes(...)` (deprecated 2026.04) |
+| `SEARCH` clause — `FULLTEXT INDEX` (`WITH ANALYZER`, `SKIP`/`OFFSET`) | 2026.09 | `CALL db.index.fulltext.queryNodes(...)` / `queryRelationships(...)` |
 | `ACYCLIC` path mode (no repeated nodes in path) | 2026.03 | post-filter with `size(nodes(p)) = size(apoc.coll.toSet(nodes(p)))` |
 | `string.indexOf()`, `string.join()`, `string.regexReplace()` | 2026.05 | `apoc.text.*` or app-side |
 | `GROUP BY` subclause on `WITH`/`RETURN`, `cardinality()` | 2026.07 | implicit grouping keys; `size()` / `size(keys(map))` |
@@ -416,7 +417,7 @@ Full anti-patterns → [references/performance.md](references/performance.md)
 
 Load on demand:
 - [references/indexes.md](references/indexes.md) — index types (RANGE/TEXT/FULLTEXT/POINT/COMPOSITE/LOOKUP), constraints, MERGE lock semantics, fulltext Lucene syntax, import pre-flight
-- [references/cypher-syntax.md](references/cypher-syntax.md) — full syntax reference: WITH, DELETE, ORDER BY, CASE, null, lists, strings, dates, spatial/point, LOAD CSV, subqueries, QPEs, dynamic labels, SEARCH; conditional CALL (WHEN/THEN/ELSE); label pattern expressions; allReduce; NEXT clause; compact CASE WHEN; normalize(); string interpolation; UUID type + `uuid()` functions [2026.08]; map comprehension [2026.09]; index/constraint types table; functions annotated with version introduced
+- [references/cypher-syntax.md](references/cypher-syntax.md) — full syntax reference: WITH, DELETE, ORDER BY, CASE, null, lists, strings, dates, spatial/point, LOAD CSV, subqueries, QPEs, dynamic labels, SEARCH (vector [2026.01], fulltext [2026.09]); conditional CALL (WHEN/THEN/ELSE); label pattern expressions; allReduce; NEXT clause; compact CASE WHEN; normalize(); string interpolation; UUID type + `uuid()` functions [2026.08]; map comprehension [2026.09]; index/constraint types table; functions annotated with version introduced
 - [references/syntax-traps.md](references/syntax-traps.md) — 40+ syntax trap table
 - [references/performance.md](references/performance.md) — anti-patterns, text vs fulltext indexes, Eager (3 fix strategies), label inference, batching best practices, parallel runtime
 - [references/advanced-patterns.md](references/advanced-patterns.md) — REPEATABLE ELEMENTS patterns, allReduce stateful traversal, multi-stop QPE, route planning simulation, DAG critical path, temporal fraud detection component graph, cycle detection, OPTIONAL CALL

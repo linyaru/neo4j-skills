@@ -8,7 +8,7 @@ description: Programmatic security management in Neo4j — RBAC/ABAC, user lifec
   — use neo4j-cypher-skill. Does NOT handle cluster ops or backups — use neo4j-cli-tools-skill.
   Property-level security and ABAC require Enterprise Edition.
 allowed-tools: Bash WebFetch
-version: 1.0.10
+version: 1.0.11
 ---
 
 ## When to Use
@@ -100,6 +100,7 @@ RETURN user, roles ORDER BY user;
 SHOW USERS YIELD user, roles, tags;
 
 // runnable CREATE USER commands for the whole DBMS [2026.09]
+// requires SHOW USER + SHOW USER CREDENTIALS; tags omitted without SHOW USER METADATA
 SHOW USERS AS COMMANDS;
 SHOW USERS WITH AUTH AS COMMANDS;   // includes auth provider config + credentials
 ```

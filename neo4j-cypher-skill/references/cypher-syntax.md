@@ -702,7 +702,7 @@ SET n = properties(r)
 
 ---
 
-## SEARCH Clause (Vector/Fulltext Search) [2026.01]
+## SEARCH Clause (Vector [2026.01] / Fulltext [2026.09])
 
 ```cypher
 // Node vector index
@@ -717,11 +717,25 @@ ORDER BY score DESC
 // Procedure fallback (pre-2026.01):
 CYPHER 25 CALL db.index.vector.queryNodes('news', 10, $embedding) YIELD node AS c, score RETURN c.text, score
 
-// Fulltext -- always use procedure regardless of version:
+// Node fulltext index [2026.09] -- Lucene query syntax in FOR string
+CYPHER 25
+MATCH (node)
+SEARCH node IN (FULLTEXT INDEX entity FOR $query LIMIT 20)
+SCORE AS score
+RETURN node.name, score
+
+// Relationship fulltext index; WITH ANALYZER + SKIP/OFFSET fulltext-only [2026.09]
+CYPHER 25
+MATCH ()-[r]->()
+SEARCH r IN (FULLTEXT INDEX communications FOR $query WITH ANALYZER 'english' SKIP 10 LIMIT 10)
+SCORE AS score
+RETURN type(r), r.message, score
+
+// Procedure fallback (pre-2026.09):
 CYPHER 25 CALL db.index.fulltext.queryNodes('entity', $query) YIELD node, score RETURN node.name, score LIMIT 20
 ```
 
-SEARCH syntax: binding variable only (not `(c)`); `LIMIT` inside parens; `SCORE AS` after closing paren.
+SEARCH syntax: binding variable only (not `(c)`); `LIMIT` inside parens; `SCORE AS` after closing paren. Node index needs node binding variable; relationship index needs relationship variable. Fulltext and vector scores not comparable — rank each source separately.
 
 ---
 
