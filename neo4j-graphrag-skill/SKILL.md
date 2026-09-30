@@ -1,17 +1,17 @@
 ---
 name: neo4j-graphrag-skill
 description: Build GraphRAG retrieval pipelines on Neo4j using the neo4j-graphrag Python
-  package (v1.16.0+). Covers retriever selection (VectorRetriever, HybridRetriever,
+  package (v1.21.0+). Covers retriever selection (VectorRetriever, HybridRetriever,
   VectorCypherRetriever, HybridCypherRetriever, Text2CypherRetriever, ToolsRetriever),
   external vector DB retrievers (Weaviate, Pinecone, Qdrant), retrieval_query Cypher
   fragments, query_params, filters, GraphRAG pipeline wiring (GraphRAG + LLM + prompt),
-  all LLM providers (OpenAI, Anthropic, VertexAI, Bedrock, Cohere, Mistral, Ollama),
+  all LLM providers (OpenAI, Anthropic, Gemini/VertexAI, Bedrock, Cohere, Mistral, Ollama),
   embedder setup, index creation, token usage tracking, Cypher 25 SEARCH clause, and
   LangChain/LlamaIndex integration. Does NOT handle KG construction — use
   neo4j-document-import-skill. Does NOT handle plain vector search — use
   neo4j-vector-index-skill. Does NOT handle GDS analytics — use neo4j-gds-skill.
   Does NOT handle agent memory — use neo4j-agent-memory-skill.
-version: 1.0.11
+version: 1.1.0
 status: active
 allowed-tools: Bash WebFetch
 ---
@@ -305,6 +305,47 @@ retriever = VectorRetriever(
 )
 ```
 
+Since v1.19, the vector and vector-Cypher retrievers automatically prefix SEARCH queries
+with `CYPHER 25` and fall back to the procedure-based vector search when SEARCH is
+unsupported or fails.
+
+---
+
+## Component Imports (v1.19 — breaking, preparing 2.0)
+
+All components moved out of the `experimental` namespace. Old imports still work but emit a
+DeprecationWarning and will be removed in 2.0:
+
+```python
+# v1.19+ — preferred
+from neo4j_graphrag.components.text_splitters.fixed_size_splitter import FixedSizeSplitter
+from neo4j_graphrag.pipeline.kg_builder import SimpleKGPipeline
+
+# deprecated (removed in 2.0)
+from neo4j_graphrag.components.text_splitters.fixed_size_splitter import FixedSizeSplitter
+```
+
+Also since v1.19: `Component` / `RunContext` / `TaskProgressNotifierProtocol` live in
+`neo4j_graphrag.components.base`, and malformed components raise `ComponentDefinitionError`
+(no longer `PipelineDefinitionError`).
+
+---
+
+## Pipeline Observers (v1.20)
+
+`StageObserver` / `LoggingStageObserver` hook into pipeline item flow without touching the
+transformation functions:
+
+```python
+from neo4j_graphrag.pipeline import LocalInterpreter, LoggingStageObserver
+
+result = pipeline.run(
+    ...,
+    observers=[LoggingStageObserver()],  # wrapped via LocalInterpreter
+)
+# Operators accept a label= argument to name stages in observer output
+```
+
 ---
 
 ## ORDER BY on Cypher Retrievers (v1.16.0)
@@ -420,29 +461,37 @@ retriever = QdrantNeo4jRetriever(
 ## LLM Providers
 
 All implement `LLMBase`. All support sync + async, tool calling, and automatic rate limiting.
+Since v1.19 provider classes are imported lazily — importing `neo4j_graphrag.llm` no longer pulls in every provider SDK.
 
 | Class | Extra | Notes |
 |---|---|---|
 | `OpenAILLM` | `openai` | Structured output; tool calling |
 | `AzureOpenAILLM` | `openai` | Azure-hosted OpenAI |
-| `AnthropicLLM` | `anthropic` | Tool calling |
-| `VertexAILLM` | `google` | Structured output; tool calling |
-| `MistralAILLM` | `mistralai` | Tool calling |
-| `CohereLLM` | `cohere` | |
+| `AnthropicLLM` | `anthropic` | Structured output + tool calling (v1.19; needs Claude 4.5+) |
+| `GeminiLLM` | `google` | Google GenAI SDK; added v1.17 (replaces deprecated-to-be `VertexAILLM`) |
+| `VertexAILLM` | `google` | Structured output; tool calling; default model now `gemini-2.5-flash` (v1.19) |
+| `MistralAILLM` | `mistralai` | Tool calling; requires `mistralai>=2.7.1` (v1.19, breaking) |
+| `CohereLLM` | `cohere` | Constructible again since v1.19 |
 | `OllamaLLM` | `ollama` | Local; tool calling |
-| `BedrockLLM` | `bedrock` | Boto3 Converse API; added v1.15.0 |
+| `BedrockLLM` | `bedrock` | Boto3 Converse API; default model now `us.anthropic.claude-haiku-4-5-...` (v1.19) |
 
 ```python
 from neo4j_graphrag.llm import (
-    OpenAILLM, AzureOpenAILLM, AnthropicLLM, VertexAILLM,
+    OpenAILLM, AzureOpenAILLM, AnthropicLLM, GeminiLLM, VertexAILLM,
     MistralAILLM, CohereLLM, OllamaLLM, BedrockLLM,
+    BaseOpenAILLM, BaseAnthropicLLM, BaseGeminiLLM,  # subclass to reach custom endpoints (v1.19)
 )
 
 llm = OpenAILLM(model_name="gpt-4.1", model_params={"temperature": 0})
-llm = AnthropicLLM(model_name="claude-3-5-sonnet-20241022")
-llm = VertexAILLM(model_name="gemini-2.0-flash")
+llm = AnthropicLLM(model_name="claude-sonnet-4-5")
+llm = GeminiLLM(model_name="gemini-2.5-flash")
+llm = VertexAILLM(model_name="gemini-2.5-flash")
 llm = OllamaLLM(model_name="llama3")           # no API key needed
-llm = BedrockLLM(model_id="anthropic.claude-3-5-sonnet-20241022-v2:0")
+llm = BedrockLLM(model_id="us.anthropic.claude-haiku-4-5-20251001-v1:0")
+
+# Custom / OpenAI-compatible endpoint (v1.19): explicit base_url on Anthropic, OpenAI, Azure, Gemini
+llm = OpenAILLM(model_name="...", base_url="https://my-gateway.example.com/v1")
+# Note: an http_client with its own base_url is ignored by the SDKs — pass base_url instead (warns)
 
 # Token usage tracking (v1.15.0+)
 response = llm.invoke("Hello")
@@ -463,6 +512,7 @@ All include automatic rate limiting with tenacity exponential backoff.
 |---|---|---|
 | `OpenAIEmbeddings` | `openai` | 3072 / 1536 |
 | `AzureOpenAIEmbeddings` | `openai` | varies |
+| `GeminiEmbedder` | `google` | added v1.17 (replaces deprecated-to-be `VertexAIEmbeddings`) |
 | `VertexAIEmbeddings` | `google` | 768 |
 | `MistralAIEmbeddings` | `mistralai` | 1024 |
 | `CohereEmbeddings` | `cohere` | 1024 |
@@ -472,9 +522,13 @@ All include automatic rate limiting with tenacity exponential backoff.
 
 ```python
 from neo4j_graphrag.embeddings import (
-    OpenAIEmbeddings, VertexAIEmbeddings, CohereEmbeddings,
+    OpenAIEmbeddings, VertexAIEmbeddings, GeminiEmbedder, CohereEmbeddings,
     OllamaEmbeddings, SentenceTransformerEmbeddings, BedrockEmbeddings,
 )
+
+# Cohere embeddings are asymmetric (v1.19): give the retrieval side its own instance
+indexer_embedder = CohereEmbeddings(input_type="search_document")  # default, for TextChunkEmbedder
+query_embedder = CohereEmbeddings(input_type="search_query")       # for the retriever
 
 embedder = OpenAIEmbeddings(model="text-embedding-3-large")   # 3072 dims
 embedder = OpenAIEmbeddings(model="text-embedding-3-small")   # 1536 dims
@@ -528,6 +582,7 @@ schema_dict = get_structured_schema(driver, sample=1000)  # dict with labels/rel
 | `Text2CypherRetrievalError` | LLM generated a write statement | Expected security behavior (v1.16.0+); refine prompt or schema |
 | `TypeError: coroutine` | Missing `await` / `asyncio.run()` | Wrap async calls: `asyncio.run(pipeline.run_async(...))` |
 | Empty results from HybridRetriever | Fulltext index not ONLINE | `SHOW INDEXES YIELD name, state WHERE state <> 'ONLINE'` |
+| `VectorCypherRetriever` + `filters` raises "requires: node_label, embedding_node_property, …" (v1.19 name-mismatch bug) | `_fetch_index_infos` sets `self._embedding_node_property`, constructor sets `_node_embedding_property` | Shim after construction: `r._node_embedding_property = r._embedding_node_property or "embedding"`; append filter props to `r._filterable_properties` |
 | Embedding dimension mismatch | Index dims ≠ model dims | Recreate index with correct `dimensions=` value |
 
 ---

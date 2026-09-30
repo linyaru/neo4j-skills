@@ -3,7 +3,7 @@
 ## Full Constructor
 
 ```python
-from neo4j_graphrag.experimental.pipeline.kg_builder import SimpleKGPipeline
+from neo4j_graphrag.pipeline.kg_builder import SimpleKGPipeline
 
 pipeline = SimpleKGPipeline(
     llm,                          # LLMInterface — used for entity/rel extraction
@@ -71,7 +71,7 @@ Set exactly one of `node_label` or `relationship_type` per constraint. `UNIQUENE
 ## Chunking Options
 
 ```python
-from neo4j_graphrag.experimental.components.text_splitters.fixed_size_splitter import FixedSizeSplitter
+from neo4j_graphrag.components.text_splitters.fixed_size_splitter import FixedSizeSplitter
 
 pipeline = SimpleKGPipeline(
     ...,
